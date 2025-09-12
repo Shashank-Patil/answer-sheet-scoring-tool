@@ -77,7 +77,20 @@ Place your files in the appropriate directories:
 
 ### 2. Run the Analysis
 
-#### Option A: Using the Python Module (Recommended)
+#### Option A: Using Streamlit Web UI (Recommended)
+
+```bash
+# Run the web interface
+streamlit run app.py
+```
+
+Then open your browser to `http://localhost:8501` and:
+1. Upload your reference PDF, student PDF, and YOLO model
+2. Configure scoring weights
+3. Click "Run Scoring Pipeline"
+4. View results with visual previews and comparisons
+
+#### Option B: Using the Python Module
 
 ```bash
 # Navigate to the src directory
@@ -92,7 +105,7 @@ python main.py \
   --manual-scores 3 3 3 3 3 3 3 3 3 3 3
 ```
 
-#### Option B: Using Python Script
+#### Option C: Using Python Script
 
 ```python
 from src.main import AnswerSheetScorer
@@ -108,7 +121,7 @@ results = scorer.run_complete_pipeline(
 )
 ```
 
-#### Option C: Using the Jupyter Notebook
+#### Option D: Using the Jupyter Notebook
 
 Execute the Jupyter notebook `notebooks/DDP_Demo.ipynb` which includes:
 
