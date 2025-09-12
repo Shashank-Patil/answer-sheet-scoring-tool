@@ -109,13 +109,15 @@ class AnswerSheetScorer:
         return detection_results
     
     def calculate_scores(self, detection_results: Dict[str, Dict], 
-                        manual_scores: List[float] = None) -> Dict:
+                        manual_scores: List[float] = None,
+                        similarity_threshold: float = 0.85) -> Dict:
         """
         Calculate similarity scores between reference and student answers.
         
         Args:
             detection_results: Results from object detection
             manual_scores: Manual scoring weights for each question
+            similarity_threshold: Minimum similarity score to award full marks
             
         Returns:
             Dictionary with scoring results
@@ -152,7 +154,8 @@ class AnswerSheetScorer:
             
             print(f"\nScoring class: {class_name}")
             class_results = self.similarity_scorer.compare_image_sets(
-                ref_class_dir, student_class_dir, manual_scores
+                ref_class_dir, student_class_dir, manual_scores,
+                similarity_threshold=similarity_threshold
             )
             all_results[class_name] = class_results
         
@@ -160,6 +163,7 @@ class AnswerSheetScorer:
     
     def run_complete_pipeline(self, reference_pdf: str, student_pdf: str,
                              manual_scores: List[float] = None,
+                             similarity_threshold: float = 0.85,
                              save_results: bool = True) -> Dict:
         """
         Run the complete scoring pipeline.
@@ -168,6 +172,7 @@ class AnswerSheetScorer:
             reference_pdf: Path to reference answer key PDF
             student_pdf: Path to student answer sheet PDF
             manual_scores: Manual scoring weights
+            similarity_threshold: Minimum similarity score to award full marks
             save_results: Whether to save results to JSON
             
         Returns:
@@ -190,7 +195,7 @@ class AnswerSheetScorer:
         detection_results = self.detect_objects(image_dirs)
         
         # Step 3: Calculate similarity scores
-        scoring_results = self.calculate_scores(detection_results, manual_scores)
+        scoring_results = self.calculate_scores(detection_results, manual_scores, similarity_threshold)
         
         # Print summary
         print_scoring_summary(scoring_results)
@@ -240,6 +245,13 @@ def main():
         help="Manual scoring weights (space-separated floats)"
     )
     
+    parser.add_argument(
+        "--similarity-threshold",
+        type=float,
+        default=0.85,
+        help="Minimum similarity score to award full marks (default: 0.85)"
+    )
+    
     args = parser.parse_args()
     
     # Initialize scorer
@@ -250,7 +262,8 @@ def main():
         results = scorer.run_complete_pipeline(
             args.reference_pdf,
             args.student_pdf, 
-            args.manual_scores
+            args.manual_scores,
+            args.similarity_threshold
         )
         print("\nPipeline completed successfully!")
         

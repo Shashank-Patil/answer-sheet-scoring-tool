@@ -97,7 +97,8 @@ class SimilarityScorer:
     
     def compare_image_sets(self, reference_dir: str, student_dir: str, 
                           manual_scores: List[float] = None,
-                          display_matches: bool = False) -> Dict:
+                          display_matches: bool = False,
+                          similarity_threshold: float = 0.85) -> Dict:
         """
         Compare all images in reference directory with student directory.
         
@@ -106,6 +107,7 @@ class SimilarityScorer:
             student_dir: Directory containing student answer images
             manual_scores: List of manual scoring weights for each question
             display_matches: Whether to display matched image pairs
+            similarity_threshold: Minimum similarity score to award full marks (default: 0.85)
             
         Returns:
             Dictionary containing comparison results
@@ -150,8 +152,13 @@ class SimilarityScorer:
             )
             
             if best_match_path:
-                # Calculate weighted score
-                weighted_score = manual_scores[i] * max_similarity
+                # Apply threshold-based scoring: full marks if >= threshold, 0 if below
+                if max_similarity >= similarity_threshold:
+                    weighted_score = manual_scores[i]  # Full marks
+                    score_status = "PASS"
+                else:
+                    weighted_score = 0.0  # No marks
+                    score_status = "FAIL"
                 
                 results['individual_scores'].append(weighted_score)
                 results['similarity_scores'].append(max_similarity)
@@ -159,11 +166,12 @@ class SimilarityScorer:
                     'reference': ref_path,
                     'student': best_match_path,
                     'similarity': max_similarity,
-                    'weighted_score': weighted_score
+                    'weighted_score': weighted_score,
+                    'passed_threshold': max_similarity >= similarity_threshold
                 })
                 
-                print(f"Image: {ref_image}, Max Similarity Score: {max_similarity:.4f}, "
-                      f"Weighted Score: {weighted_score:.4f}")
+                print(f"Image: {ref_image}, Similarity: {max_similarity:.4f} ({score_status}), "
+                      f"Score: {weighted_score:.2f}/{manual_scores[i]:.2f}")
                 
                 # Display matches if requested
                 if display_matches:
@@ -202,7 +210,8 @@ class SimilarityScorer:
             print(f"Error displaying images: {e}")
     
     def batch_compare_classes(self, reference_base_dir: str, student_base_dir: str,
-                             class_names: List[str], manual_scores: List[float] = None) -> Dict:
+                             class_names: List[str], manual_scores: List[float] = None,
+                             similarity_threshold: float = 0.85) -> Dict:
         """
         Compare multiple classes of detected objects.
         
@@ -211,6 +220,7 @@ class SimilarityScorer:
             student_base_dir: Base directory containing student class folders
             class_names: List of class names to compare
             manual_scores: Manual scoring weights
+            similarity_threshold: Minimum similarity score to award full marks
             
         Returns:
             Dictionary containing results for all classes
@@ -224,7 +234,8 @@ class SimilarityScorer:
             if os.path.exists(ref_class_dir) and os.path.exists(student_class_dir):
                 print(f"\nComparing class: {class_name}")
                 results = self.compare_image_sets(
-                    ref_class_dir, student_class_dir, manual_scores
+                    ref_class_dir, student_class_dir, manual_scores, 
+                    similarity_threshold=similarity_threshold
                 )
                 all_results[class_name] = results
             else:
