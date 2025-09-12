@@ -146,7 +146,11 @@ def show_welcome_screen():
           - 📐 **Class 0**: Formulas/Equations
           - 📊 **Class 1**: Figures/Diagrams
           - 📋 **Class 2**: Tables/Structured Data
-        - **Similarity Scoring**: Uses LayoutLMv3 to compare answers
+        - **Similarity Scoring**: Uses Claude Sonnet 4 via AWS Bedrock
+          - 🤖 **Intelligent Analysis**: Understands mathematical formulas, diagrams, and tables
+          - 📐 **Formulas**: Semantic mathematical comparison (not just visual)
+          - 📊 **Figures**: Structural and content analysis
+          - 📋 **Tables**: Data organization and value comparison
         - **Automated Grading**: Threshold-based scoring (≥0.85 = full marks)
         """)
         

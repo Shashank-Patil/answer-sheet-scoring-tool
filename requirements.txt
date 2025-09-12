@@ -6,12 +6,16 @@ torchvision>=0.15.2
 opencv-python>=4.8.0
 Pillow>=9.4.0
 
-# LayoutLMv3 requirements
+# Mathematical similarity requirements
 transformers>=4.21.0
 torch>=2.0.1
 torchvision>=0.15.2
-datasets>=2.4.0
 scikit-learn>=1.1.0
+
+# CLIP requirements (for figures/tables)
+ftfy>=6.1.1
+regex>=2022.10.31
+git+https://github.com/openai/CLIP.git
 
 # Additional dependencies
 numpy>=1.23.5
@@ -20,3 +24,6 @@ tqdm>=4.65.0
 # Web UI
 streamlit>=1.28.0
 pandas>=1.5.0
+
+# Claude via AWS Bedrock
+boto3>=1.28.0

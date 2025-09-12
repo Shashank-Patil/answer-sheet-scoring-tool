@@ -9,7 +9,7 @@ from typing import Dict, List
 
 from pdf_processor import PDFProcessor
 from object_detector import ObjectDetector
-from layoutlm_scorer import LayoutLMv3Scorer
+from claude_hybrid_scorer import ClaudeHybridScorer
 from utils import (
     create_directory, save_results_to_json, print_scoring_summary,
     validate_paths, get_project_root
@@ -33,7 +33,7 @@ class AnswerSheetScorer:
         # Initialize components
         self.pdf_processor = PDFProcessor()
         self.object_detector = ObjectDetector(model_path)
-        self.similarity_scorer = LayoutLMv3Scorer()
+        self.similarity_scorer = ClaudeHybridScorer(aws_region="ap-south-1")
         
         # Create output directory
         create_directory(self.output_base_dir)
@@ -154,7 +154,7 @@ class AnswerSheetScorer:
             
             print(f"\nScoring class: {class_name}")
             class_results = self.similarity_scorer.compare_image_sets(
-                ref_class_dir, student_class_dir, manual_scores,
+                ref_class_dir, student_class_dir, class_name, manual_scores,
                 similarity_threshold=similarity_threshold
             )
             all_results[class_name] = class_results
