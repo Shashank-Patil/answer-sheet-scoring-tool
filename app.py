@@ -146,7 +146,7 @@ def show_welcome_screen():
           - 📐 **Class 0**: Formulas/Equations
           - 📊 **Class 1**: Figures/Diagrams
           - 📋 **Class 2**: Tables/Structured Data
-        - **Similarity Scoring**: Uses CLIP to compare answers
+        - **Similarity Scoring**: Uses LayoutLMv3 to compare answers
         - **Automated Grading**: Threshold-based scoring (≥0.85 = full marks)
         """)
         
@@ -282,35 +282,40 @@ def run_scoring_pipeline(ref_pdf_path, student_pdf_path, model_path, manual_scor
                 
                 if 'matches' in class_results and class_results['matches']:
                     num_matches = len(class_results['matches'])
-                    show_count = min(3, num_matches)
+                    st.info(f"Showing all {num_matches} comparisons")
                     
-                    if num_matches > 3:
-                        st.info(f"Showing {show_count} of {num_matches} comparisons as preview")
+                    # Create comparison grid - use max 4 columns for better layout
+                    max_cols = 4
+                    num_rows = (num_matches + max_cols - 1) // max_cols
                     
-                    # Create comparison grid
-                    cols = st.columns(show_count)
-                    
-                    for i, match in enumerate(class_results['matches'][:show_count]):
-                        with cols[i]:
-                            # Reference image
-                            ref_img = Image.open(match['reference'])
-                            st.image(ref_img, caption=f"Reference", width=200)
+                    for row in range(num_rows):
+                        cols = st.columns(max_cols)
+                        start_idx = row * max_cols
+                        end_idx = min(start_idx + max_cols, num_matches)
+                        
+                        for col_idx, match_idx in enumerate(range(start_idx, end_idx)):
+                            match = class_results['matches'][match_idx]
                             
-                            # Student image
-                            student_img = Image.open(match['student'])
-                            st.image(student_img, caption=f"Student", width=200)
-                            
-                            # Scores with pass/fail status
-                            passed = match.get('passed_threshold', match['similarity'] >= similarity_threshold)
-                            status_color = "🟢" if passed else "🔴"
-                            status_label = "PASS" if passed else "FAIL"
-                            
-                            st.metric(
-                                label="Similarity", 
-                                value=f"{match['similarity']:.3f}",
-                                delta=f"{status_color} {status_label}"
-                            )
-                            st.write(f"**Score: {match['weighted_score']:.1f}**")
+                            with cols[col_idx]:
+                                # Reference image
+                                ref_img = Image.open(match['reference'])
+                                st.image(ref_img, caption=f"Reference {match_idx + 1}", width=180)
+                                
+                                # Student image
+                                student_img = Image.open(match['student'])
+                                st.image(student_img, caption=f"Student {match_idx + 1}", width=180)
+                                
+                                # Scores with pass/fail status
+                                passed = match.get('passed_threshold', match['similarity'] >= similarity_threshold)
+                                status_color = "🟢" if passed else "🔴"
+                                status_label = "PASS" if passed else "FAIL"
+                                
+                                st.metric(
+                                    label="Similarity", 
+                                    value=f"{match['similarity']:.3f}",
+                                    delta=f"{status_color} {status_label}"
+                                )
+                                st.write(f"**Score: {match['weighted_score']:.1f}**")
                 
                 class_total = class_results.get('total_score', 0)
                 total_all_classes += class_total

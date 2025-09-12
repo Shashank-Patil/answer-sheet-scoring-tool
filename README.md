@@ -4,13 +4,13 @@ An automated scoring system that uses computer vision and deep learning to evalu
 
 ## Overview
 
-This tool leverages YOLO object detection and CLIP similarity matching to automatically score student answer sheets. It extracts question regions from both reference answer keys and student submissions, then computes similarity scores to provide automated grading.
+This tool leverages YOLO object detection and LayoutLMv3 similarity matching to automatically score student answer sheets. It extracts question regions from both reference answer keys and student submissions, then computes similarity scores to provide automated grading.
 
 ## Features
 
 - **PDF to Image Conversion**: Converts PDF answer sheets to images for processing
 - **Object Detection**: Uses YOLOv8 to detect and extract question regions from answer sheets
-- **Similarity Scoring**: Employs CLIP (Contrastive Language-Image Pre-training) to compute similarity between reference and student answers
+- **Similarity Scoring**: Employs LayoutLMv3 (Document AI model) to compute similarity between reference and student answers
 - **Automated Grading**: Combines manual scoring weights with similarity scores for final grades
 - **Multi-category Detection**: Handles different types of content (formulas, figures, tables)
 
@@ -22,7 +22,7 @@ This tool leverages YOLO object detection and CLIP similarity matching to automa
 - PIL (Pillow)
 - pdf2image
 - ultralytics (YOLOv8)
-- CLIP
+- transformers (LayoutLMv3)
 - poppler-utils (for PDF processing)
 
 ## Installation
@@ -52,9 +52,8 @@ pip install pdf2image>=1.16.3 ultralytics>=8.0.152
 pip install torch>=2.0.1 torchvision>=0.15.2
 pip install opencv-python>=4.8.0 Pillow>=9.4.0
 
-# Install CLIP requirements
-pip install ftfy>=6.1.1 regex>=2022.10.31
-pip install git+https://github.com/openai/CLIP.git
+# Install LayoutLMv3 requirements  
+pip install transformers>=4.21.0 datasets>=2.4.0
 
 # Install additional dependencies
 pip install numpy>=1.23.5 tqdm>=4.65.0
@@ -169,14 +168,14 @@ answer-sheet-scoring-tool/
 
 1. **PDF Processing**: Convert PDF documents to individual page images
 2. **Region Detection**: Use YOLO to identify and crop question regions
-3. **Feature Extraction**: Apply CLIP to extract visual features from cropped regions
+3. **Feature Extraction**: Apply LayoutLMv3 to extract document-aware features from cropped regions
 4. **Similarity Computation**: Calculate cosine similarity between reference and student answers
 5. **Score Calculation**: Multiply similarity scores by manual weights to get final scores
 
 ## Model Details
 
 - **Object Detection**: YOLOv8 trained to detect different answer types (formulas, figures, tables)
-- **Similarity Matching**: CLIP ViT-B/32 model for visual similarity comparison
+- **Similarity Matching**: LayoutLMv3 base model for document-aware similarity comparison
 - **Classes**: 
   - Class 0: Formulas/equations
   - Class 1: Figures/diagrams  
