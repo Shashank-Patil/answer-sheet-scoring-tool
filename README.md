@@ -46,14 +46,14 @@ pip install git+https://github.com/openai/CLIP.git
 
 ### 1. Prepare Your Data
 
-Place your files in the `demo_requirements/` directory:
-- Reference answer key PDF
-- Student answer sheet PDF
-- Pre-trained YOLO model (`best.pt`)
+Place your files in the appropriate directories:
+- Reference answer key PDF → `data/`
+- Student answer sheet PDF → `data/`
+- Pre-trained YOLO model (`best.pt`) → `models/`
 
 ### 2. Run the Notebook
 
-Execute the Jupyter notebook `DDP_Demo.ipynb` which includes:
+Execute the Jupyter notebook `notebooks/DDP_Demo.ipynb` which includes:
 
 1. **PDF Conversion**: Convert PDFs to images
 2. **Object Detection**: Extract question regions using YOLO
@@ -73,14 +73,26 @@ The system will:
 ```
 answer-sheet-scoring-tool/
 ├── README.md
-├── DDP_Demo.ipynb           # Main processing notebook
-├── DDP_Presentation.pdf     # Project presentation
-├── DDP_Presentation.pptx    # Project presentation (editable)
-├── demo_requirements/       # Required files for demo
-│   ├── best.pt             # Pre-trained YOLO model
+├── requirements.txt         # Python dependencies
+├── .gitignore
+├── src/                    # Source code modules
+│   ├── __init__.py
+│   ├── pdf_processor.py    # PDF to image conversion
+│   ├── object_detector.py  # YOLO object detection
+│   ├── similarity_scorer.py # CLIP similarity scoring
+│   └── utils.py           # Utility functions
+├── notebooks/             # Jupyter notebooks
+│   └── DDP_Demo.ipynb    # Main analysis notebook
+├── data/                 # Input data files
 │   ├── PDC_Assignment_3_solutions_2023.pdf  # Reference answer key
 │   └── RollNo_PDC_Assignment 3.pdf         # Student submission
-└── .gitignore
+├── models/               # Trained models
+│   └── best.pt          # Pre-trained YOLO model
+├── outputs/             # Generated outputs
+├── docs/               # Documentation and presentations
+│   ├── DDP_Presentation.pdf
+│   └── DDP_Presentation.pptx
+└── tests/              # Unit tests (future)
 ```
 
 ## How It Works
