@@ -27,19 +27,43 @@ This tool leverages YOLO object detection and CLIP similarity matching to automa
 
 ## Installation
 
+### Option 1: Using requirements.txt (Recommended)
+
 ```bash
-# Install required packages
-pip install pdf2image ultralytics torch torchvision
-pip install ftfy regex opencv-python pillow
+# Clone the repository
+git clone <repository-url>
+cd answer-sheet-scoring-tool
+
+# Install Python dependencies
+pip install -r requirements.txt
 
 # Install poppler-utils (Ubuntu/Debian)
-apt-get install poppler-utils
+sudo apt-get install poppler-utils
 
 # Install poppler-utils (macOS)
 brew install poppler
+```
 
-# Install CLIP
+### Option 2: Manual Installation
+
+```bash
+# Install core packages
+pip install pdf2image>=1.16.3 ultralytics>=8.0.152
+pip install torch>=2.0.1 torchvision>=0.15.2
+pip install opencv-python>=4.8.0 Pillow>=9.4.0
+
+# Install CLIP requirements
+pip install ftfy>=6.1.1 regex>=2022.10.31
 pip install git+https://github.com/openai/CLIP.git
+
+# Install additional dependencies
+pip install numpy>=1.23.5 tqdm>=4.65.0
+
+# Install poppler-utils (Ubuntu/Debian)
+sudo apt-get install poppler-utils
+
+# Install poppler-utils (macOS)
+brew install poppler
 ```
 
 ## Usage
@@ -51,7 +75,40 @@ Place your files in the appropriate directories:
 - Student answer sheet PDF → `data/`
 - Pre-trained YOLO model (`best.pt`) → `models/`
 
-### 2. Run the Notebook
+### 2. Run the Analysis
+
+#### Option A: Using the Python Module (Recommended)
+
+```bash
+# Navigate to the src directory
+cd src
+
+# Run the complete pipeline
+python main.py \
+  --reference-pdf ../data/PDC_Assignment_3_solutions_2023.pdf \
+  --student-pdf "../data/RollNo_PDC_Assignment 3.pdf" \
+  --model-path ../models/best.pt \
+  --output-dir ../outputs \
+  --manual-scores 3 3 3 3 3 3 3 3 3 3 3
+```
+
+#### Option B: Using Python Script
+
+```python
+from src.main import AnswerSheetScorer
+
+# Initialize scorer
+scorer = AnswerSheetScorer("models/best.pt", "outputs")
+
+# Run complete pipeline
+results = scorer.run_complete_pipeline(
+    "data/PDC_Assignment_3_solutions_2023.pdf",
+    "data/RollNo_PDC_Assignment 3.pdf",
+    manual_scores=[3]*11
+)
+```
+
+#### Option C: Using the Jupyter Notebook
 
 Execute the Jupyter notebook `notebooks/DDP_Demo.ipynb` which includes:
 
