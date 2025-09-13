@@ -174,13 +174,29 @@ class SimilarityScorer:
 
             content_description = CONFIG.content_type_descriptions.get(content_type, "content")
 
-            prompt = f"""Compare these two images containing {content_description} and assess similarity.
+            prompt = f"""I need you to compare these two images containing {content_description} and assess how similar they are.
+Judge similarity along the following dimensions:
 
-Scoring Guidelines:
-- 0.90-1.00: Same meaning/content, only style/formatting differences
-- 0.70-0.89: Mostly similar with small differences
-- 0.40-0.69: Partially similar with noticeable differences
-- 0.00-0.39: Very different or unrelated
+1. **Mathematical formulas**
+    - Focus on the mathematical structure and operations.
+    - Equivalent if the same variables, operators, and relationships are expressed, even if written in different styles (e.g., 1/x vs x⁻¹).
+    - Different if there are missing terms, different operators, or a change in mathematical meaning (e.g., (a+b)² vs a²+b²).
+    - Ignore handwriting style, formatting differences, or spacing.
+2. **Figures/diagrams**
+    - Focus on the elements shown (shapes, axes, connections, labels) and their relationships.
+    - Equivalent if they represent the same relationships or structure, even if layout, style, or colors differ.
+    - Different if elements are missing, added, rearranged in a way that changes meaning, or if values/relationships differ.
+3. **Tables**
+    - Focus on the rows, columns, headers, and cell values.
+    - Equivalent if the same data is present, even if formatting or order differs.
+    - Different if values change, rows/columns are added or missing, or headers differ in meaning.
+
+### Scoring Guidelines
+
+- **0.90–1.00** → Same meaning/content, differences only in style, formatting, or minor notation.
+- **0.70–0.89** → Mostly similar, but some small differences in data, notation, or structure.
+- **0.40–0.69** → Partially similar, with noticeable differences in content, values, or structure.
+- **0.00–0.39** → Very different or unrelated.
 
 Output JSON:
 - "similarity_score": number between 0.0 and 1.0
