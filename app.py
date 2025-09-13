@@ -81,9 +81,27 @@ def main():
         # Confidence threshold
         confidence_threshold = st.slider("Detection Confidence Threshold", 0.1, 1.0, 0.25, 0.05)
         
-        # Similarity threshold
-        similarity_threshold = st.slider("Similarity Threshold (for full marks)", 0.1, 1.0, 0.85, 0.05)
-        st.info(f"Answers with similarity ≥ {similarity_threshold:.2f} get full marks, below get 0")
+        # Similarity strategy selection
+        st.subheader("🧠 Similarity Strategy")
+        strategy = st.selectbox(
+            "Choose similarity strategy:",
+            options=["clip", "nova"],
+            index=0,  # Default to CLIP
+            help="CLIP: Fast local embeddings (default) | Nova: AWS Bedrock vision model"
+        )
+
+        if strategy == "clip":
+            st.info("📊 Using CLIP embeddings for similarity comparison")
+        else:
+            st.info("🤖 Using Nova vision model - automatically determines if answers are equivalent!")
+        
+        # Cache override option (only show for Nova strategy)
+        if strategy == "nova":
+            st.subheader("🗄️ Cache Settings")
+            bypass_cache = st.checkbox("Force re-analysis (ignore cached results)", value=False,
+                                      help="Check this to run fresh Nova analysis even if cached results exist. Useful for testing different prompts or when you want the latest analysis.")
+        else:
+            bypass_cache = False  # No caching for CLIP strategy
         
         # Run button
         run_scoring = st.button("🚀 Run Scoring Pipeline", type="primary", use_container_width=True)
@@ -112,8 +130,8 @@ def main():
             with open(model_path, "wb") as f:
                 f.write(model_file.read())
             
-            run_scoring_pipeline(str(ref_pdf_path), str(student_pdf_path), str(model_path), 
-                               manual_scores, temp_dir, confidence_threshold, similarity_threshold)
+            run_scoring_pipeline(str(ref_pdf_path), str(student_pdf_path), str(model_path),
+                               manual_scores, temp_dir, confidence_threshold, strategy, bypass_cache)
 
 
 def show_welcome_screen():
@@ -146,12 +164,14 @@ def show_welcome_screen():
           - 📐 **Class 0**: Formulas/Equations
           - 📊 **Class 1**: Figures/Diagrams
           - 📋 **Class 2**: Tables/Structured Data
-        - **Similarity Scoring**: Uses Claude Sonnet 4 via AWS Bedrock
-          - 🤖 **Intelligent Analysis**: Understands mathematical formulas, diagrams, and tables
-          - 📐 **Formulas**: Semantic mathematical comparison (not just visual)
-          - 📊 **Figures**: Structural and content analysis
-          - 📋 **Tables**: Data organization and value comparison
-        - **Automated Grading**: Threshold-based scoring (≥0.85 = full marks)
+        - **Similarity Scoring**: Choose between two strategies:
+          - 📊 **CLIP** (default): Fast local embeddings for similarity comparison
+          - 🤖 **Nova**: AWS Bedrock vision model with intelligent analysis
+            - Understands mathematical formulas, diagrams, and tables
+            - 📐 **Formulas**: Semantic mathematical comparison (not just visual)
+            - 📊 **Figures**: Structural and content analysis
+            - 📋 **Tables**: Data organization and value comparison
+        - **Automated Grading**: Strategy determines equivalence (intelligent pass/fail)
         """)
         
         st.subheader("📊 Output")
@@ -180,7 +200,7 @@ def show_welcome_screen():
     st.success("📈 Total Score: 12.14 / 15.00")
 
 
-def run_scoring_pipeline(ref_pdf_path, student_pdf_path, model_path, manual_scores, temp_dir, confidence, similarity_threshold):
+def run_scoring_pipeline(ref_pdf_path, student_pdf_path, model_path, manual_scores, temp_dir, confidence, strategy, bypass_cache=False):
     """Run the complete scoring pipeline with progress tracking."""
     
     st.header("🔄 Processing Pipeline")
@@ -193,7 +213,7 @@ def run_scoring_pipeline(ref_pdf_path, student_pdf_path, model_path, manual_scor
         # Initialize scorer
         status_text.text("Initializing scorer...")
         output_dir = os.path.join(temp_dir, "outputs")
-        scorer = AnswerSheetScorer(model_path, output_dir)
+        scorer = AnswerSheetScorer(model_path, output_dir, strategy, enable_cache=not bypass_cache)
         progress_bar.progress(10)
         
         # Step 1: PDF Processing
@@ -208,19 +228,39 @@ def run_scoring_pipeline(ref_pdf_path, student_pdf_path, model_path, manual_scor
                 st.write("**Reference PDF Pages:**")
                 if image_dirs['reference']:
                     st.success(f"✅ Converted {len(image_dirs['reference'])} pages")
-                    # Show first page preview
+                    # Image carousel for reference pages
+                    if len(image_dirs['reference']) > 1:
+                        ref_page_idx = st.selectbox(
+                            "Select Reference Page", 
+                            range(len(image_dirs['reference'])),
+                            format_func=lambda x: f"Page {x+1}",
+                            key="ref_page_selector"
+                        )
+                    else:
+                        ref_page_idx = 0
+                    
                     if image_dirs['reference']:
-                        img = Image.open(image_dirs['reference'][0])
-                        st.image(img, caption="Reference Page 1 Preview", width=300)
+                        img = Image.open(image_dirs['reference'][ref_page_idx])
+                        st.image(img, caption=f"Reference Page {ref_page_idx + 1}", width=300)
                 
             with col2:
                 st.write("**Student PDF Pages:**")
                 if image_dirs['student']:
                     st.success(f"✅ Converted {len(image_dirs['student'])} pages")
-                    # Show first page preview
+                    # Image carousel for student pages
+                    if len(image_dirs['student']) > 1:
+                        student_page_idx = st.selectbox(
+                            "Select Student Page", 
+                            range(len(image_dirs['student'])),
+                            format_func=lambda x: f"Page {x+1}",
+                            key="student_page_selector"
+                        )
+                    else:
+                        student_page_idx = 0
+                    
                     if image_dirs['student']:
-                        img = Image.open(image_dirs['student'][0])
-                        st.image(img, caption="Student Page 1 Preview", width=300)
+                        img = Image.open(image_dirs['student'][student_page_idx])
+                        st.image(img, caption=f"Student Page {student_page_idx + 1}", width=300)
         
         progress_bar.progress(30)
         
@@ -245,9 +285,19 @@ def run_scoring_pipeline(ref_pdf_path, student_pdf_path, model_path, manual_scor
                 for class_name, crops in ref_crops.items():
                     class_display = class_mapping.get(class_name, f"Class {class_name}")
                     st.write(f"- {class_display}: {len(crops)} detections")
-                    if crops:  # Show first detection preview
-                        img = Image.open(crops[0])
-                        st.image(img, caption=f"Reference {class_display} (Preview)", width=250)
+                    if crops:
+                        if len(crops) > 1:
+                            ref_crop_idx = st.selectbox(
+                                f"Select {class_display}", 
+                                range(len(crops)),
+                                format_func=lambda x: f"Detection {x+1}",
+                                key=f"ref_{class_name}_selector"
+                            )
+                        else:
+                            ref_crop_idx = 0
+                        
+                        img = Image.open(crops[ref_crop_idx])
+                        st.image(img, caption=f"Reference {class_display} ({ref_crop_idx + 1}/{len(crops)})", width=350)
             
             with col2:
                 st.write("**Student Detections:**")
@@ -255,9 +305,19 @@ def run_scoring_pipeline(ref_pdf_path, student_pdf_path, model_path, manual_scor
                 for class_name, crops in student_crops.items():
                     class_display = class_mapping.get(class_name, f"Class {class_name}")
                     st.write(f"- {class_display}: {len(crops)} detections")
-                    if crops:  # Show first detection preview
-                        img = Image.open(crops[0])
-                        st.image(img, caption=f"Student {class_display} (Preview)", width=250)
+                    if crops:
+                        if len(crops) > 1:
+                            student_crop_idx = st.selectbox(
+                                f"Select {class_display}", 
+                                range(len(crops)),
+                                format_func=lambda x: f"Detection {x+1}",
+                                key=f"student_{class_name}_selector"
+                            )
+                        else:
+                            student_crop_idx = 0
+                        
+                        img = Image.open(crops[student_crop_idx])
+                        st.image(img, caption=f"Student {class_display} ({student_crop_idx + 1}/{len(crops)})", width=350)
         
         progress_bar.progress(60)
         
@@ -266,7 +326,7 @@ def run_scoring_pipeline(ref_pdf_path, student_pdf_path, model_path, manual_scor
         st.subheader("🧮 Step 3: Similarity Scoring")
         
         with st.expander("View Scoring Process", expanded=True):
-            scoring_results = scorer.calculate_scores(detection_results, manual_scores, similarity_threshold)
+            scoring_results = scorer.calculate_scores(detection_results, manual_scores)
             progress_bar.progress(90)
             
             # Class mapping
@@ -277,7 +337,8 @@ def run_scoring_pipeline(ref_pdf_path, student_pdf_path, model_path, manual_scor
             }
             
             # Display results for each class
-            total_all_classes = 0
+            total_absolute_score = 0
+            total_partial_score = 0
             all_individual_scores = []
             
             for class_name, class_results in scoring_results.items():
@@ -286,46 +347,88 @@ def run_scoring_pipeline(ref_pdf_path, student_pdf_path, model_path, manual_scor
                 
                 if 'matches' in class_results and class_results['matches']:
                     num_matches = len(class_results['matches'])
-                    st.info(f"Showing all {num_matches} comparisons")
+                    st.success(f"✅ Found {num_matches} comparisons - showing all below")
                     
-                    # Create comparison grid - use max 4 columns for better layout
-                    max_cols = 4
-                    num_rows = (num_matches + max_cols - 1) // max_cols
-                    
-                    for row in range(num_rows):
-                        cols = st.columns(max_cols)
-                        start_idx = row * max_cols
-                        end_idx = min(start_idx + max_cols, num_matches)
+                    # Display all comparisons in a single column for better visibility
+                    for match_idx, match in enumerate(class_results['matches']):
+                        st.subheader(f"Question {match_idx + 1}")
                         
-                        for col_idx, match_idx in enumerate(range(start_idx, end_idx)):
-                            match = class_results['matches'][match_idx]
-                            
-                            with cols[col_idx]:
-                                # Reference image
-                                ref_img = Image.open(match['reference'])
-                                st.image(ref_img, caption=f"Reference {match_idx + 1}", width=180)
-                                
-                                # Student image
-                                student_img = Image.open(match['student'])
-                                st.image(student_img, caption=f"Student {match_idx + 1}", width=180)
-                                
-                                # Scores with pass/fail status
-                                passed = match.get('passed_threshold', match['similarity'] >= similarity_threshold)
-                                status_color = "🟢" if passed else "🔴"
-                                status_label = "PASS" if passed else "FAIL"
-                                
-                                st.metric(
-                                    label="Similarity", 
-                                    value=f"{match['similarity']:.3f}",
-                                    delta=f"{status_color} {status_label}"
-                                )
-                                st.write(f"**Score: {match['weighted_score']:.1f}**")
+                        # Create side-by-side layout for images
+                        img_col1, img_col2 = st.columns(2)
+                        
+                        with img_col1:
+                            ref_img = Image.open(match['reference'])
+                            st.image(ref_img, caption="Reference", width=280)
+                        
+                        with img_col2:
+                            student_img = Image.open(match['student'])
+                            st.image(student_img, caption="Student", width=280)
+                        
+                        # Scores with pass/fail status
+                        passed = match.get('passed_threshold', False)
+                        status_color = "🟢" if passed else "🔴"
+                        status_label = "PASS" if passed else "FAIL"
+                        
+                        # Calculate dual scores
+                        question_weight = manual_scores[match_idx] if match_idx < len(manual_scores) else 3.0
+                        absolute_score = question_weight if passed else 0.0
+                        partial_score = question_weight * match['similarity']
+                        
+                        # Display metrics in columns
+                        metric_col1, metric_col2, metric_col3 = st.columns(3)
+                        
+                        with metric_col1:
+                            st.metric(
+                                label="Similarity", 
+                                value=f"{match['similarity']:.3f}",
+                                delta=f"{status_color} {status_label}"
+                            )
+                        
+                        with metric_col2:
+                            st.metric(
+                                label="Absolute Score", 
+                                value=f"{absolute_score:.1f}",
+                                delta="Boolean-based"
+                            )
+                        
+                        with metric_col3:
+                            st.metric(
+                                label="Partial Score", 
+                                value=f"{partial_score:.1f}",
+                                delta="Similarity-based"
+                            )
+                        
+                        # Show strategy's explanation
+                        explanation = match.get('explanation', match.get('claude_explanation', 'No explanation available'))
+                        if explanation and explanation != 'No explanation available':
+                            strategy_emoji = "🤖" if strategy == "nova" else "📊"
+                            strategy_name = "Nova" if strategy == "nova" else "CLIP"
+                            with st.expander(f"{strategy_emoji} {strategy_name} Analysis", expanded=False):
+                                st.write(explanation)
+                        
+                        st.divider()  # Add separator between comparisons
+                        
+                        # Accumulate totals for both scoring methods
+                        total_absolute_score += absolute_score
+                        total_partial_score += partial_score
+                        
+                else:
+                    st.warning(f"⚠️ No matches found for {class_display}. This could mean no detections were found in one or both images.")
                 
-                class_total = class_results.get('total_score', 0)
-                total_all_classes += class_total
+                # Calculate class totals for both methods
+                class_absolute_total = sum(manual_scores[i] if match.get('passed_threshold', False) else 0.0 
+                                         for i, match in enumerate(class_results.get('matches', [])))
+                class_partial_total = sum(manual_scores[i] * match['similarity'] 
+                                        for i, match in enumerate(class_results.get('matches', [])))
+                
                 all_individual_scores.extend(class_results.get('individual_scores', []))
                 
-                st.write(f"{class_display} Total: **{class_total:.2f}**")
+                # Display class totals for both methods
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.write(f"**{class_display} Absolute Total: {class_absolute_total:.2f}**")
+                with col2:
+                    st.write(f"**{class_display} Partial Total: {class_partial_total:.2f}**")
                 st.divider()
         
         progress_bar.progress(100)
@@ -338,22 +441,42 @@ def run_scoring_pipeline(ref_pdf_path, student_pdf_path, model_path, manual_scor
         
         with col1:
             st.metric(
-                label="Total Score",
-                value=f"{total_all_classes:.2f}",
-                delta=f"Max Possible: {sum(manual_scores):.2f}"
+                label="Absolute Total Score",
+                value=f"{total_absolute_score:.2f}",
+                delta=f"Boolean-based scoring"
             )
         
         with col2:
-            percentage = (total_all_classes / sum(manual_scores)) * 100 if sum(manual_scores) > 0 else 0
             st.metric(
-                label="Percentage",
-                value=f"{percentage:.1f}%"
+                label="Partial Total Score",
+                value=f"{total_partial_score:.2f}",
+                delta=f"Similarity-based scoring"
             )
         
         with col3:
+            max_possible = sum(manual_scores)
             st.metric(
-                label="Questions Scored",
-                value=len(all_individual_scores)
+                label="Max Possible Score",
+                value=f"{max_possible:.2f}",
+                delta=f"{len(all_individual_scores)} questions"
+            )
+        
+        # Show percentages
+        st.subheader("📈 Score Percentages")
+        perc_col1, perc_col2 = st.columns(2)
+        
+        with perc_col1:
+            abs_percentage = (total_absolute_score / max_possible * 100) if max_possible > 0 else 0
+            st.metric(
+                label="Absolute Score %", 
+                value=f"{abs_percentage:.1f}%"
+            )
+        
+        with perc_col2:
+            partial_percentage = (total_partial_score / max_possible * 100) if max_possible > 0 else 0
+            st.metric(
+                label="Partial Score %", 
+                value=f"{partial_percentage:.1f}%"
             )
         
         # Detailed breakdown
@@ -376,15 +499,29 @@ def run_scoring_pipeline(ref_pdf_path, student_pdf_path, model_path, manual_scor
             
             class_display = class_mapping.get(class_name, class_name)
             
+            matches = class_results.get('matches', [])
             for i, (ind_score, sim_score) in enumerate(zip(individual_scores, similarity_scores)):
-                status = "🟢 PASS" if sim_score >= similarity_threshold else "🔴 FAIL"
+                # Get pass/fail status from match data
+                if i < len(matches):
+                    passed = matches[i].get('passed_threshold', False)
+                    status = "🟢 PASS" if passed else "🔴 FAIL"
+                else:
+                    status = "🔴 FAIL"
+                    passed = False
+                
+                # Calculate both scoring methods
+                weight = manual_scores[min(question_num-1, len(manual_scores)-1)]
+                absolute_score = weight if passed else 0.0
+                partial_score = weight * sim_score
+                
                 detailed_results.append({
                     "Question": f"Q{question_num}",
                     "Type": class_display,
                     "Similarity": f"{sim_score:.4f}",
                     "Status": status,
-                    "Weight": manual_scores[min(question_num-1, len(manual_scores)-1)],
-                    "Score": f"{ind_score:.1f}"
+                    "Weight": weight,
+                    "Absolute Score": f"{absolute_score:.1f}",
+                    "Partial Score": f"{partial_score:.1f}"
                 })
                 question_num += 1
         

@@ -9,7 +9,7 @@ from typing import Dict, List
 
 from pdf_processor import PDFProcessor
 from object_detector import ObjectDetector
-from claude_hybrid_scorer import ClaudeHybridScorer
+from similarity_scorer import SimilarityScorer
 from utils import (
     create_directory, save_results_to_json, print_scoring_summary,
     validate_paths, get_project_root
@@ -19,22 +19,25 @@ from utils import (
 class AnswerSheetScorer:
     """Main class for the answer sheet scoring pipeline."""
     
-    def __init__(self, model_path: str, output_base_dir: str = "outputs"):
+    def __init__(self, model_path: str, output_base_dir: str = "outputs",
+                 similarity_strategy: str = "clip", enable_cache: bool = True):
         """
         Initialize the answer sheet scorer.
-        
+
         Args:
             model_path: Path to the trained YOLO model
             output_base_dir: Base directory for all outputs
+            similarity_strategy: Similarity strategy ('nova' or 'clip', default: 'clip')
+            enable_cache: Whether to enable result caching
         """
         self.model_path = model_path
         self.output_base_dir = output_base_dir
-        
+
         # Initialize components
         self.pdf_processor = PDFProcessor()
         self.object_detector = ObjectDetector(model_path)
-        self.similarity_scorer = ClaudeHybridScorer(aws_region="ap-south-1")
-        
+        self.similarity_scorer = SimilarityScorer(strategy=similarity_strategy, enable_cache=enable_cache)
+
         # Create output directory
         create_directory(self.output_base_dir)
     
@@ -154,8 +157,7 @@ class AnswerSheetScorer:
             
             print(f"\nScoring class: {class_name}")
             class_results = self.similarity_scorer.compare_image_sets(
-                ref_class_dir, student_class_dir, class_name, manual_scores,
-                similarity_threshold=similarity_threshold
+                ref_class_dir, student_class_dir, class_name, manual_scores
             )
             all_results[class_name] = class_results
         
@@ -249,13 +251,20 @@ def main():
         "--similarity-threshold",
         type=float,
         default=0.85,
-        help="Minimum similarity score to award full marks (default: 0.85)"
+        help="DEPRECATED - strategy makes the equivalent/not decision (default: 0.85)"
+    )
+
+    parser.add_argument(
+        "--strategy",
+        choices=["nova", "clip"],
+        default="clip",
+        help="Similarity strategy: 'nova' for AWS Bedrock Nova or 'clip' for CLIP embeddings (default: clip)"
     )
     
     args = parser.parse_args()
     
     # Initialize scorer
-    scorer = AnswerSheetScorer(args.model_path, args.output_dir)
+    scorer = AnswerSheetScorer(args.model_path, args.output_dir, args.strategy)
     
     # Run pipeline
     try:
